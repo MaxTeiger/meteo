@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Météo — il fait beau</title>
+<meta name="description" content="La météo qui vous met de bonne humeur : il fait toujours beau.">
+<meta name="theme-color" content="#4fb3ff">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☀️</text></svg>">
+<style>
+  :root { --txt:#fff; --card:rgba(255,255,255,.18); --line:rgba(255,255,255,.28); }
+  * { box-sizing:border-box; margin:0; }
+  html,body { min-height:100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    color:var(--txt);
+    background: linear-gradient(180deg,#2f8fff 0%,#5cb8ff 45%,#ffd38a 100%) fixed;
+    padding: max(16px, env(safe-area-inset-top)) 16px 40px;
+    overflow-x:hidden;
+  }
+  .wrap { max-width:520px; margin:0 auto; position:relative; z-index:1; }
+  .sun {
+    position:fixed; top:-90px; right:-90px; width:300px; height:300px; border-radius:50%;
+    background: radial-gradient(circle,#fff7c2 0%,#ffe066 35%,#ffc93c 60%,rgba(255,201,60,0) 72%);
+    animation: pulse 6s ease-in-out infinite; z-index:0; pointer-events:none;
+  }
+  .rays { position:fixed; top:-240px; right:-240px; width:600px; height:600px; z-index:0; pointer-events:none;
+    background: repeating-conic-gradient(rgba(255,255,255,.12) 0 6deg, transparent 6deg 18deg);
+    border-radius:50%; animation: spin 80s linear infinite;
+    mask: radial-gradient(circle, #000 20%, transparent 70%); -webkit-mask: radial-gradient(circle, #000 20%, transparent 70%); }
+  .cloud { position:fixed; top:22%; left:-160px; width:120px; height:40px; background:#fff; opacity:.75;
+    border-radius:40px; animation: drift 55s linear infinite; z-index:0; pointer-events:none; }
+  .cloud::before,.cloud::after { content:""; position:absolute; background:#fff; border-radius:50%; }
+  .cloud::before { width:50px; height:50px; top:-25px; left:18px; }
+  .cloud::after { width:64px; height:64px; top:-34px; left:48px; }
+  @keyframes pulse { 50% { transform:scale(1.07); } }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @keyframes drift { to { transform:translateX(calc(100vw + 320px)); } }
+
+  form { display:flex; gap:8px; margin-bottom:28px; }
+  input { flex:1; font:inherit; padding:12px 16px; border-radius:14px; border:1px solid var(--line);
+    background:var(--card); color:#fff; outline:none; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+  input::placeholder { color:rgba(255,255,255,.8); }
+  button { font:inherit; border:1px solid var(--line); background:var(--card); color:#fff; border-radius:14px;
+    padding:0 14px; cursor:pointer; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+  button:active { transform:scale(.96); }
+
+  .now { text-align:center; text-shadow:0 2px 12px rgba(0,60,140,.25); margin-bottom:28px; }
+  .city { font-size:30px; font-weight:500; }
+  .temp { font-size:104px; font-weight:200; line-height:1; margin:6px 0 2px; }
+  .cond { font-size:21px; font-weight:500; }
+  .hl { opacity:.9; margin-top:4px; }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:20px; padding:14px 16px;
+    margin-bottom:14px; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+  .card h2 { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; opacity:.8;
+    padding-bottom:10px; margin-bottom:10px; border-bottom:1px solid var(--line); }
+  .mood { font-size:16px; line-height:1.4; }
+  .hours { display:flex; gap:20px; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+  .hours::-webkit-scrollbar { display:none; }
+  .h { display:flex; flex-direction:column; align-items:center; gap:8px; min-width:42px; font-size:15px; }
+  .h .i { font-size:24px; }
+  .day { display:grid; grid-template-columns:72px 34px 1fr; align-items:center; gap:10px; padding:7px 0; font-size:17px; }
+  .day + .day { border-top:1px solid rgba(255,255,255,.15); }
+  .day .i { font-size:22px; text-align:center; }
+  .bar { display:flex; align-items:center; gap:10px; }
+  .bar span { width:30px; text-align:right; opacity:.85; }
+  .bar span:last-child { text-align:left; opacity:1; }
+  .bar i { flex:1; height:5px; border-radius:3px; background:linear-gradient(90deg,#ffe066,#ff9f43); }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .grid .card { margin:0; }
+  .v { font-size:26px; font-weight:400; margin-bottom:4px; }
+  .s { font-size:14px; opacity:.9; }
+  .alert { display:flex; gap:10px; align-items:center; }
+  footer { text-align:center; font-size:12px; opacity:.75; margin-top:26px; }
+</style>
+</head>
+<body>
+<div class="rays"></div><div class="sun"></div><div class="cloud" aria-hidden="true"></div>
+<main class="wrap">
+  <form id="f">
+    <input id="q" placeholder="Rechercher une ville" autocomplete="off" enterkeyhint="search">
+    <button type="button" id="loc" title="Ma position" aria-label="Ma position">📍</button>
+  </form>
+
+  <section class="now">
+    <div class="city" id="city">…</div>
+    <div class="temp" id="temp">--°</div>
+    <div class="cond" id="cond">Ensoleillé</div>
+    <div class="hl" id="hl"></div>
+  </section>
+
+  <div class="card"><div class="mood" id="mood"></div></div>
+  <div class="card"><h2>Prévisions heure par heure</h2><div class="hours" id="hours"></div></div>
+  <div class="card"><h2>Prévisions sur 10 jours</h2><div id="days"></div></div>
+  <div class="grid" id="details"></div>
+  <div class="card" style="margin-top:14px"><h2>Alertes météo</h2>
+    <div class="alert"><span style="font-size:22px">✅</span><span>Aucune alerte. Profitez-en, c'est une belle journée.</span></div></div>
+  <footer>Fiabilité des prévisions : 0 %. Bonne humeur garantie : 100 %.</footer>
+</main>
+<script>
+// Rien ici ne vient d'une vraie API météo : c'est voulu, il fait toujours beau.
+const $ = id => document.getElementById(id);
+const JOURS = ["Dim.","Lun.","Mar.","Mer.","Jeu.","Ven.","Sam."];
+const MOODS = [
+  "☀️ Grand soleil sur toute la journée. Sortez les lunettes, c'est le moment de prendre un café en terrasse.",
+  "😎 Ciel parfaitement dégagé. Idéal pour une balade, un pique-nique ou une sieste au soleil.",
+  "🌼 Douceur printanière et ciel bleu. Les météorologues sont formels : la journée va être belle.",
+  "🍦 Il fait beau et chaud juste ce qu'il faut. Une glace serait tout à fait justifiée.",
+  "🌞 Pas un nuage à l'horizon. Votre humeur devrait suivre la même tendance.",
+  "🏖️ Conditions idéales partout. Si quelqu'un vous dit qu'il pleut, il se trompe sûrement.",
+];
+const CONDS = [["☀️","Ensoleillé"],["☀️","Grand soleil"],["🌤️","Ensoleillé"],["☀️","Ciel dégagé"]];
+
+// Générateur pseudo-aléatoire déterministe : même ville + même jour = même (beau) temps.
+function rng(seed) {
+  let h = 2166136261;
+  for (const c of seed) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  return () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 10000) / 10000; };
+}
+
+function render(city) {
+  $("city").textContent = city;
+  document.title = `${city} — il fait beau`;
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const r = rng(city.toLowerCase() + today);
+  const base = 22 + Math.round(r() * 4);           // 22 à 26 °C, toujours
+  const hour = now.getHours();
+  const tAt = h => Math.round(base - 3 + 5 * Math.sin(Math.PI * (h - 8) / 12) * (h >= 8 && h <= 20 ? 1 : .2));
+  const cur = tAt(hour);
+  $("temp").textContent = cur + "°";
+  const night = hour < 7 || hour >= 21;
+  $("cond").textContent = night ? "Nuit étoilée" : CONDS[Math.floor(r() * CONDS.length)][1];
+  $("hl").textContent = `Max. ${base + 2}° Min. ${base - 5}°`;
+  $("mood").textContent = night
+    ? "🌙 Ciel étoilé, nuit douce. Demain, grand soleil prévu (comme d'habitude)."
+    : MOODS[Math.floor(r() * MOODS.length)];
+
+  let hrs = "";
+  for (let i = 0; i < 24; i++) {
+    const h = (hour + i) % 24;
+    const n = h < 7 || h >= 21;
+    hrs += `<div class="h"><span>${i ? String(h).padStart(2, "0") + " h" : "Maint."}</span>
+      <span class="i">${n ? "🌙" : r() < .2 ? "🌤️" : "☀️"}</span><span>${tAt(h)}°</span></div>`;
+  }
+  $("hours").innerHTML = hrs;
+
+  let days = "";
+  for (let d = 0; d < 10; d++) {
+    const date = new Date(now); date.setDate(now.getDate() + d);
+    const dr = rng(city.toLowerCase() + date.toISOString().slice(0, 10));
+    const b = 22 + Math.round(dr() * 4);
+    days += `<div class="day"><span>${d ? JOURS[date.getDay()] : "Auj."}</span>
+      <span class="i">${dr() < .25 ? "🌤️" : "☀️"}</span>
+      <span class="bar"><span>${b - 5}°</span><i></i><span>${b + 2}°</span></span></div>`;
+  }
+  $("days").innerHTML = days;
+
+  const det = [
+    ["Indice UV", "Parfait", "Juste assez pour bronzer joliment."],
+    ["Vent", `${5 + Math.round(r() * 6)} km/h`, "Petite brise agréable."],
+    ["Précipitations", "0 mm", "Aucune pluie prévue. Jamais."],
+    ["Humidité", `${40 + Math.round(r() * 10)} %`, "Ni trop sec, ni trop humide."],
+    ["Lever du soleil", "06:42", "Coucher à 21:12. Belles journées longues."],
+    ["Qualité de l'air", "Excellente", "Respirez à pleins poumons."],
+  ];
+  $("details").innerHTML = det.map(([t, v, s]) =>
+    `<div class="card"><h2>${t}</h2><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+}
+
+function setCity(name) { localStorage.setItem("ville", name); render(name); }
+
+$("f").addEventListener("submit", async e => {
+  e.preventDefault();
+  const q = $("q").value.trim();
+  if (!q) return;
+  $("q").blur(); $("q").value = "";
+  try {
+    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&language=fr&name=${encodeURIComponent(q)}`);
+    const j = await res.json();
+    setCity(j.results?.[0]?.name || q);
+  } catch { setCity(q); }
+});
+
+$("loc").addEventListener("click", locate);
+function locate() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+    try {
+      const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${coords.latitude}&longitude=${coords.longitude}&localityLanguage=fr`);
+      const j = await res.json();
+      setCity(j.city || j.locality || "Chez vous");
+    } catch { setCity("Chez vous"); }
+  }, () => {});
+}
+
+render(localStorage.getItem("ville") || "Paris");
+if (!localStorage.getItem("ville")) locate();
+</script>
+</body>
+</html>
